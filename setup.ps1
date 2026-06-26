@@ -17,19 +17,31 @@ Write-Host "Xurrent Claude Plugin - setup" -ForegroundColor White
 Write-Host "------------------------------"
 
 # Python >= 3.10
+# ponytail: returns a real python version string, skipping the Microsoft Store
+# alias stub (lives under WindowsApps, prints to stderr, has no real version).
+function Get-PythonVersion {
+    foreach ($cmd in @('py -3 --version', 'python --version')) {
+        $exe = $cmd.Split(' ')[0]
+        $src = (Get-Command $exe -ErrorAction SilentlyContinue).Source
+        if (-not $src -or $src -like '*\WindowsApps\*') { continue }
+        # Don't let native stderr trip $ErrorActionPreference='Stop'.
+        $out = & cmd /c "$cmd 2>&1"
+        if ($out -match '(\d+)\.(\d+)\.\d+') { return $Matches[0] }
+    }
+    return $null
+}
+
 Write-Step "Checking Python..."
 $pythonOk = $false
-try {
-    $pyver = & python --version 2>&1
-    if ($pyver -match '(\d+)\.(\d+)') {
-        $major = [int]$Matches[1]; $minor = [int]$Matches[2]
-        if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) {
-            Write-Warn "Python 3.10+ required (found $pyver) — will install via Chocolatey."
-        } else {
-            Write-OK $pyver; $pythonOk = $true
-        }
+$pyver = Get-PythonVersion
+if ($pyver -match '(\d+)\.(\d+)') {
+    $major = [int]$Matches[1]; $minor = [int]$Matches[2]
+    if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) {
+        Write-Warn "Python 3.10+ required (found $pyver) — will install."
+    } else {
+        Write-OK "Python $pyver"; $pythonOk = $true
     }
-} catch { <# not found #> }
+}
 
 if (-not $pythonOk) {
     if (Get-Command winget -ErrorAction SilentlyContinue) {
@@ -54,8 +66,10 @@ if (-not $pythonOk) {
     }
     $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
                 [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-    $pyver = & python --version 2>&1
-    if ($pyver -match '(\d+)\.(\d+)') { Write-OK $pyver } else { Write-Fail "Python install failed." }
+    $pyver = Get-PythonVersion
+    if ($pyver) { Write-OK "Python $pyver" } else {
+        Write-Fail "Python install succeeded but isn't on PATH yet. Restart your terminal and re-run this script."
+    }
 }
 
 # uv
