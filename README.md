@@ -14,13 +14,13 @@ A Claude Code plugin that gives Claude:
 Run this one-liner in PowerShell — it checks Python, installs `uv` if missing, and tells you what to do next:
 
 ```powershell
-irm https://raw.githubusercontent.com/BlackDragonBE/xurrent-tools/main/setup.ps1 | iex
+irm https://raw.githubusercontent.com/BlackDragonBE/Xurrent-Claude-Plugin/main/setup.ps1 | iex
 ```
 
 Then inside Claude Code:
 
 ```text
-/plugin marketplace add BlackDragonBE/xurrent-tools
+/plugin marketplace add BlackDragonBE/Xurrent-Claude-Plugin
 /plugin install xurrent@xurrent-tools
 ```
 
