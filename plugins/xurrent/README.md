@@ -18,6 +18,8 @@ Set these before installing the plugin so Claude Code can pass them to the serve
 ```bash
 export XURRENT_API_TOKEN=your_bearer_token
 export XURRENT_ACCOUNT=provincieantwerpen   # or whichever account you target
+# Optional but recommended: your Xurrent email — enables whoami() and "requests assigned to me"
+# export XURRENT_ME_EMAIL=you@provincieantwerpen.be
 # Optional: point at QA instead of production
 # export XURRENT_BASE_URL=https://api.4me-demo.com/v1
 ```

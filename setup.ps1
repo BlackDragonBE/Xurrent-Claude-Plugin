@@ -94,6 +94,7 @@ function Read-EnvVar {
 Read-EnvVar 'XURRENT_ACCOUNT'   'Xurrent account name (e.g. provincieantwerpen)'  | Out-Null
 Read-EnvVar 'XURRENT_QA_TOKEN'  'Xurrent QA API token'                             | Out-Null
 Read-EnvVar 'XURRENT_PRD_TOKEN' 'Xurrent Production API token'                     | Out-Null
+Read-EnvVar 'XURRENT_ME_EMAIL'  'Your Xurrent email (optional but recommended, enables "assigned to me")' $false | Out-Null
 
 Write-OK "Environment variables saved to user profile."
 

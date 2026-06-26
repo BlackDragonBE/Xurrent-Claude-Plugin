@@ -25,6 +25,8 @@ ProblemFilter = Literal["active", "known_errors", "solved", "managed_by_me", "as
 _PRD_TOKEN: str = os.environ.get("XURRENT_PRD_TOKEN") or os.environ.get("XURRENT_API_TOKEN", "")
 _QA_TOKEN: str = os.environ.get("XURRENT_QA_TOKEN", "")
 _DEFAULT_ACCOUNT: str = os.environ.get("XURRENT_ACCOUNT", "")
+# Human user's email — lets whoami() resolve a real person despite the system-account token.
+_ME_EMAIL: str = os.environ.get("XURRENT_ME_EMAIL", "")
 
 if not _DEFAULT_ACCOUNT:
     print("Missing required environment variable: XURRENT_ACCOUNT", file=sys.stderr)
@@ -158,6 +160,14 @@ async def _patch(endpoint: str, token: str, base_url: str, account: str, body: d
         url = f"{base_url}/{endpoint.lstrip('/')}"
         resp = await _request_with_retry(client, "PATCH", url, token, account, json=body)
         return resp.json()
+
+
+async def _delete(endpoint: str, token: str, base_url: str, account: str) -> Any:
+    async with httpx.AsyncClient(timeout=30) as client:
+        url = f"{base_url}/{endpoint.lstrip('/')}"
+        resp = await _request_with_retry(client, "DELETE", url, token, account)
+        # Xurrent returns 204/empty on a successful delete; otherwise the record.
+        return resp.json() if resp.text.strip() else {"status": "deleted", "endpoint": endpoint}
 
 
 def _parse_filter(filter_params: Optional[str]) -> dict[str, Any]:
@@ -720,6 +730,160 @@ async def export_csv(
         dl_resp = await client.get(download_url)
         dl_resp.raise_for_status()
     return dl_resp.text
+
+
+# ---------------------------------------------------------------------------
+# Generic / any-endpoint tools — reach resources without a typed wrapper
+# (teams, sites, ui_extensions, services, cis, …). See https://developer.xurrent.com/v1/
+# ---------------------------------------------------------------------------
+
+
+def _endpoint(endpoint: str, resource_id: Optional[int]) -> str:
+    """Append the id as a path segment when given: 'teams' + 123 -> 'teams/123'."""
+    base = endpoint.strip("/")
+    return f"{base}/{resource_id}" if resource_id is not None else base
+
+
+@mcp.tool()
+async def xurrent_get(
+    endpoint: str,
+    resource_id: Optional[int] = None,
+    filter_params: Optional[str] = None,
+    paginate: bool = True,
+    environment: Environment = "QA",
+    account: Optional[str] = None,
+) -> str:
+    """GET any Xurrent endpoint — the catch-all reader for resources without a typed tool.
+
+    Args:
+        endpoint: API path, e.g. "teams", "sites", "ui_extensions", "services".
+        resource_id: Numeric id for a single record (e.g. endpoint="teams", resource_id=123
+            -> GET /teams/123). Omit to list the collection.
+        filter_params: URL query string of filters, e.g. "name=Antwerpen&disabled=false".
+            See https://developer.xurrent.com/v1/ for each resource's fields.
+        paginate: True (default) follows Link headers and returns every page; False returns
+            a single page (use for a quick peek at large collections).
+        environment: "QA" (default) or "PRD".
+        account: Xurrent account name. Defaults to XURRENT_ACCOUNT.
+    """
+    token, base_url = _env_config(environment)
+    ep = _endpoint(endpoint, resource_id)
+    params = _parse_filter(filter_params)
+    getter = _get_all if paginate else _get_page
+    data = await getter(ep, token, base_url, _acct(account), params)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+async def xurrent_post(
+    endpoint: str,
+    body: str,
+    environment: Environment = "QA",
+    account: Optional[str] = None,
+) -> str:
+    """POST (create) to any Xurrent endpoint. Commits immediately — confirm before running on PRD.
+
+    Args:
+        endpoint: API path, e.g. "teams", "sites".
+        body: JSON object string of the new record's fields. References use the _id/_ids
+            suffix and a numeric id (e.g. {"name": "...", "manager_id": 42}).
+            See https://developer.xurrent.com/v1/ for accepted fields.
+        environment: "QA" (default) or "PRD".
+        account: Xurrent account name. Defaults to XURRENT_ACCOUNT.
+    """
+    token, base_url = _env_config(environment)
+    data = await _post(endpoint.strip("/"), token, base_url, _acct(account), json.loads(body))
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+async def xurrent_patch(
+    endpoint: str,
+    resource_id: int,
+    fields: str,
+    environment: Environment = "QA",
+    account: Optional[str] = None,
+) -> str:
+    """PATCH (update) any Xurrent record. Commits immediately — confirm before running on PRD.
+
+    Args:
+        endpoint: API path, e.g. "teams", "sites".
+        resource_id: Numeric id of the record to update (-> PATCH /{endpoint}/{resource_id}).
+        fields: JSON object string of fields to change. References use the _id/_ids suffix
+            and a numeric id. See https://developer.xurrent.com/v1/ for writable fields.
+        environment: "QA" (default) or "PRD".
+        account: Xurrent account name. Defaults to XURRENT_ACCOUNT.
+    """
+    token, base_url = _env_config(environment)
+    data = await _patch(_endpoint(endpoint, resource_id), token, base_url, _acct(account), json.loads(fields))
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+async def xurrent_delete(
+    endpoint: str,
+    resource_id: int,
+    environment: Environment = "QA",
+    account: Optional[str] = None,
+) -> str:
+    """DELETE any Xurrent record. Permanent — confirm before running, especially on PRD.
+
+    Args:
+        endpoint: API path, e.g. "teams", "sites".
+        resource_id: Numeric id of the record to delete (-> DELETE /{endpoint}/{resource_id}).
+        environment: "QA" (default) or "PRD".
+        account: Xurrent account name. Defaults to XURRENT_ACCOUNT.
+
+    Returns the deleted record, or {"status": "deleted"} when the API returns no body.
+    """
+    token, base_url = _env_config(environment)
+    data = await _delete(_endpoint(endpoint, resource_id), token, base_url, _acct(account))
+    return json.dumps(data, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Identity — the API token is a system account; whoami resolves the real human
+# ---------------------------------------------------------------------------
+
+_me_cache: dict[tuple[str, str, str], Any] = {}  # ponytail: identity is stable within a session
+
+
+@mcp.tool()
+async def whoami(
+    environment: Environment = "QA",
+    account: Optional[str] = None,
+) -> str:
+    """Resolve the human user behind the system-account token to a real person record.
+
+    The API token belongs to a system account, so the predefined filters
+    (assigned_to_me, waiting_for_me, …) resolve to *that* account, not you. Set the
+    XURRENT_ME_EMAIL env var to your Xurrent email; this looks it up and returns your
+    person record. Use the returned `id` for "assigned to me" reads, e.g.
+    list_requests(filter_params=f"member={id}") or xurrent_get("requests", filter_params=f"member={id}").
+
+    Args:
+        environment: "QA" (default) or "PRD". The person id differs per environment, so the
+            email is resolved against the chosen one.
+        account: Xurrent account name. Defaults to XURRENT_ACCOUNT.
+    """
+    if not _ME_EMAIL:
+        return json.dumps({
+            "error": "XURRENT_ME_EMAIL is not set.",
+            "hint": "Set the XURRENT_ME_EMAIL env var to your Xurrent email so whoami can resolve you.",
+        }, indent=2)
+    acct = _acct(account)
+    cache_key = (environment, acct, _ME_EMAIL)
+    if cache_key not in _me_cache:
+        token, base_url = _env_config(environment)
+        matches = await _get_all(
+            "people", token, base_url, acct, {"primary_email": _ME_EMAIL},
+        )
+        if not matches:
+            return json.dumps({
+                "error": f"No person found with primary_email={_ME_EMAIL} in {environment}.",
+            }, indent=2)
+        _me_cache[cache_key] = matches[0]
+    return json.dumps(_me_cache[cache_key], indent=2)
 
 
 if __name__ == "__main__":
