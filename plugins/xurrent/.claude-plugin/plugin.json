@@ -1,0 +1,8 @@
+{
+  "name": "xurrent",
+  "version": "0.1.0",
+  "description": "Xurrent (4me) API tools and skill for Provincie Antwerpen — requests, notes, custom fields, people, organizations.",
+  "author": { "name": "Eric (BlackDragonBE)" },
+  "license": "MIT",
+  "keywords": ["xurrent", "4me", "itsm", "api", "provincie-antwerpen"]
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "xurrent": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}/server",
+        "server.py"
+      ]
+    }
+  }
+}

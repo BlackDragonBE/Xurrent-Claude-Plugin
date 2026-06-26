@@ -1,0 +1,17 @@
+{
+  "name": "xurrent-tools",
+  "owner": { "name": "Eric (BlackDragonBE)" },
+  "metadata": {
+    "description": "Xurrent / 4me tooling for Claude Code.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "xurrent",
+      "source": "./plugins/xurrent",
+      "description": "Xurrent (4me) API skill + local Python MCP server.",
+      "version": "0.1.0",
+      "author": { "name": "Eric (BlackDragonBE)" }
+    }
+  ]
+}
