@@ -7,7 +7,10 @@
         "--directory",
         "${CLAUDE_PLUGIN_ROOT}/server",
         "server.py"
-      ]
+      ],
+      "env": {
+        "UV_NATIVE_TLS": "1"
+      }
     }
   }
 }
