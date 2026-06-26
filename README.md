@@ -24,6 +24,14 @@ Then inside Claude Code:
 /plugin install xurrent@xurrent-tools
 ```
 
+## Updating
+
+To pull the latest version:
+
+```text
+claude plugin marketplace update xurrent-tools
+```
+
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed
