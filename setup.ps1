@@ -36,9 +36,11 @@ Write-OK "uv $((uv --version) -replace 'uv ','')"
 
 # Python (managed by uv — no system install, no PATH games)
 Write-Step "Ensuring a Python 3.10+ interpreter via uv..."
-& uv python install 3.12 2>&1 | Out-Null   # ponytail: ignore the cosmetic
-# "minor version link" exit code uv sometimes emits; verify by what's installed.
-$pyInstalled = (& uv python list --only-installed 2>&1) -match 'cpython-3\.1[0-9]'
+# No 2>&1: uv prints progress to stderr, and merging it would trip
+# $ErrorActionPreference='Stop'. ponytail: ignore uv's cosmetic
+# "minor version link" exit code too; verify by what's actually installed.
+& uv python install 3.12
+$pyInstalled = (& uv python list --only-installed) -match 'cpython-3\.1[0-9]'
 if ($pyInstalled) { Write-OK "Python ready (uv-managed)." }
 else { Write-Fail "uv could not provide Python 3.10+. Run 'uv python install 3.12' manually, then re-run." }
 
