@@ -19,13 +19,17 @@ Write-Host "------------------------------"
 # Python >= 3.10
 # ponytail: returns a real python version string, skipping the Microsoft Store
 # alias stub (lives under WindowsApps, prints to stderr, has no real version).
+# Enumerates ALL matches per command (-All) so a real python later on PATH
+# isn't masked by the stub that PATH happens to list first.
 function Get-PythonVersion {
-    foreach ($cmd in @('py -3 --version', 'python --version')) {
-        $exe = $cmd.Split(' ')[0]
-        $src = (Get-Command $exe -ErrorAction SilentlyContinue).Source
-        if (-not $src -or $src -like '*\WindowsApps\*') { continue }
+    $candidates = @()
+    $candidates += Get-Command py     -All -ErrorAction SilentlyContinue
+    $candidates += Get-Command python -All -ErrorAction SilentlyContinue
+    foreach ($c in $candidates) {
+        if (-not $c.Source -or $c.Source -like '*\WindowsApps\*') { continue }
+        $arg = if ($c.Name -like 'py*') { '-3 --version' } else { '--version' }
         # Don't let native stderr trip $ErrorActionPreference='Stop'.
-        $out = & cmd /c "$cmd 2>&1"
+        $out = & cmd /c "`"$($c.Source)`" $arg 2>&1"
         if ($out -match '(\d+)\.(\d+)\.\d+') { return $Matches[0] }
     }
     return $null
