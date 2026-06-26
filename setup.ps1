@@ -71,6 +71,32 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 }
 Write-OK "uv $((uv --version) -replace 'uv ','')"
 
+# Environment variables
+Write-Host ""
+Write-Step "Configuring Xurrent environment variables..."
+
+function Read-EnvVar {
+    param($Name, $Prompt, $Required = $true, $Default = '')
+    $current = [System.Environment]::GetEnvironmentVariable($Name, 'User')
+    $display  = if ($current) { " (current: $current)" } else { '' }
+    $hint     = if (-not $Required) { " [Enter to keep '$Default']" } else { '' }
+    $value    = Read-Host "  $Prompt$display$hint"
+    if (-not $value) {
+        if ($current) { return $current }
+        if (-not $Required) { return $Default }
+        Write-Fail "$Name is required."
+    }
+    [System.Environment]::SetEnvironmentVariable($Name, $value, 'User')
+    ${env:$Name} = $value
+    return $value
+}
+
+Read-EnvVar 'XURRENT_ACCOUNT'   'Xurrent account name (e.g. provincieantwerpen)'  | Out-Null
+Read-EnvVar 'XURRENT_QA_TOKEN'  'Xurrent QA API token'                             | Out-Null
+Read-EnvVar 'XURRENT_PRD_TOKEN' 'Xurrent Production API token'                     | Out-Null
+
+Write-OK "Environment variables saved to user profile."
+
 # Pre-warm the server venv (only when script is run from the cloned repo)
 $serverDir = if ($PSScriptRoot) { Join-Path $PSScriptRoot "plugins\xurrent\server" } else { $null }
 if ($serverDir -and (Test-Path $serverDir)) {
