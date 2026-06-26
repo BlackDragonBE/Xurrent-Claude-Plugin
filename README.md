@@ -11,7 +11,7 @@ A Claude Code plugin that gives Claude:
 
 ## Quick setup
 
-Run this one-liner in PowerShell — it checks Python, installs `uv` if missing, and tells you what to do next:
+Run this one-liner in PowerShell — it installs `uv` if missing, provisions Python via `uv`, and tells you what to do next:
 
 ```powershell
 irm https://raw.githubusercontent.com/BlackDragonBE/Xurrent-Claude-Plugin/main/setup.ps1 | iex
@@ -35,8 +35,7 @@ claude plugin marketplace update xurrent-tools
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed
-- Python ≥ 3.10
-- [`uv`](https://docs.astral.sh/uv/) installed and on your PATH
+- [`uv`](https://docs.astral.sh/uv/) installed and on your PATH (the setup script installs it; `uv` then provides Python ≥ 3.10)
 
 ## Required environment variables
 

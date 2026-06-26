@@ -16,65 +16,10 @@ Write-Host ""
 Write-Host "Xurrent Claude Plugin - setup" -ForegroundColor White
 Write-Host "------------------------------"
 
-# Python >= 3.10
-# ponytail: returns a real python version string, skipping the Microsoft Store
-# alias stub (lives under WindowsApps, prints to stderr, has no real version).
-# Enumerates ALL matches per command (-All) so a real python later on PATH
-# isn't masked by the stub that PATH happens to list first.
-function Get-PythonVersion {
-    $candidates = @()
-    $candidates += Get-Command py     -All -ErrorAction SilentlyContinue
-    $candidates += Get-Command python -All -ErrorAction SilentlyContinue
-    foreach ($c in $candidates) {
-        if (-not $c.Source -or $c.Source -like '*\WindowsApps\*') { continue }
-        $arg = if ($c.Name -like 'py*') { '-3 --version' } else { '--version' }
-        # Don't let native stderr trip $ErrorActionPreference='Stop'.
-        $out = & cmd /c "`"$($c.Source)`" $arg 2>&1"
-        if ($out -match '(\d+)\.(\d+)\.\d+') { return $Matches[0] }
-    }
-    return $null
-}
-
-Write-Step "Checking Python..."
-$pythonOk = $false
-$pyver = Get-PythonVersion
-if ($pyver -match '(\d+)\.(\d+)') {
-    $major = [int]$Matches[1]; $minor = [int]$Matches[2]
-    if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) {
-        Write-Warn "Python 3.10+ required (found $pyver) — will install."
-    } else {
-        Write-OK "Python $pyver"; $pythonOk = $true
-    }
-}
-
-if (-not $pythonOk) {
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Step "Installing Python 3 via winget..."
-        & winget install --id Python.Python.3 --silent --accept-source-agreements --accept-package-agreements
-    } else {
-        Write-Warn "winget not found - falling back to Chocolatey..."
-        if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-            Write-Warn "Chocolatey not found - installing..."
-            Set-ExecutionPolicy Bypass -Scope Process -Force
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
-                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-            if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-                Write-Fail "Chocolatey install failed. Install manually from https://chocolatey.org then re-run."
-            }
-            Write-OK "Chocolatey installed."
-        }
-        Write-Step "Installing Python 3 via Chocolatey..."
-        & choco install python --yes --no-progress
-    }
-    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
-                [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-    $pyver = Get-PythonVersion
-    if ($pyver) { Write-OK "Python $pyver" } else {
-        Write-Fail "Python install succeeded but isn't on PATH yet. Restart your terminal and re-run this script."
-    }
-}
+# Python is provisioned by uv (below) — no system Python needed.
+# ponytail: dropped the system-Python detect/install dance. uv reads
+# requires-python from pyproject.toml and downloads a matching interpreter
+# itself, sidestepping the Microsoft Store alias and all PATH-refresh pain.
 
 # uv
 Write-Step "Checking uv..."
@@ -88,6 +33,14 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     }
 }
 Write-OK "uv $((uv --version) -replace 'uv ','')"
+
+# Python (managed by uv — no system install, no PATH games)
+Write-Step "Ensuring a Python 3.10+ interpreter via uv..."
+& uv python install 3.12 2>&1 | Out-Null   # ponytail: ignore the cosmetic
+# "minor version link" exit code uv sometimes emits; verify by what's installed.
+$pyInstalled = (& uv python list --only-installed 2>&1) -match 'cpython-3\.1[0-9]'
+if ($pyInstalled) { Write-OK "Python ready (uv-managed)." }
+else { Write-Fail "uv could not provide Python 3.10+. Run 'uv python install 3.12' manually, then re-run." }
 
 # Environment variables
 Write-Host ""
