@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A Claude Code **plugin marketplace** (`.claude-plugin/marketplace.json`) holding one plugin, `xurrent`, which talks to the Xurrent (formerly 4me) ITSM REST API for Provincie Antwerpen. The plugin has two halves that ship together:
 
 - **Skill** (`plugins/xurrent/skills/xurrent-api/SKILL.md`) — prose that tells Claude *what* tool to call and *when*, plus org conventions (account names, QA-vs-PRD, custom-field meaning). No code.
-- **MCP server** (`plugins/xurrent/server/server.py`) — a single-file Python stdio server exposing typed tools that handle *how*: auth, pagination, retries, rate limits. Launched per `plugins/xurrent/.mcp.json` via `uv run --directory ${CLAUDE_PLUGIN_ROOT}/server server.py`.
+- **MCP server** (`plugins/xurrent/server/server.py`) — a single-file Python stdio server exposing typed tools that handle *how*: auth, pagination, retries, rate limits. Launched per `plugins/xurrent/.mcp.json`, which runs `server/run.cmd` — a thin resolver that locates `uv` (standard install dir → PATH → restart hint) and then calls `uv run --directory server server.py`. The wrapper exists because Claude Code's subprocess PATH may not yet include uv's install dir until a logoff/reboot.
 
 The division is deliberate: the skill is the catalog and policy, `server.py` is the transport. Behavior changes (e.g. "always confirm before PRD writes") usually belong in SKILL.md; new endpoints or HTTP handling belong in server.py.
 

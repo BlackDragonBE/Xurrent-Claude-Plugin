@@ -1,12 +1,10 @@
 {
   "mcpServers": {
     "xurrent": {
-      "command": "uv",
+      "command": "cmd",
       "args": [
-        "run",
-        "--directory",
-        "${CLAUDE_PLUGIN_ROOT}/server",
-        "server.py"
+        "/c",
+        "${CLAUDE_PLUGIN_ROOT}\\server\\run.cmd"
       ],
       "env": {
         "UV_NATIVE_TLS": "1"
