@@ -17,11 +17,11 @@ Run this one-liner in PowerShell — it checks Python, installs `uv` if missing,
 irm https://raw.githubusercontent.com/BlackDragonBE/Xurrent-Claude-Plugin/main/setup.ps1 | iex
 ```
 
-Then inside Claude Code:
+Then:
 
 ```text
-/plugin marketplace add BlackDragonBE/Xurrent-Claude-Plugin
-/plugin install xurrent@xurrent-tools
+claude plugin marketplace add BlackDragonBE/Xurrent-Claude-Plugin
+claude plugin install xurrent@xurrent-tools
 ```
 
 ## Updating

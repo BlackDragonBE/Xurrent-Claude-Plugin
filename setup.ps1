@@ -80,8 +80,8 @@ if ($serverDir -and (Test-Path $serverDir)) {
 }
 
 Write-Host ""
-Write-Host "Setup complete. Now run 'claude' and inside it call these commands:" -ForegroundColor Green
+Write-Host "Setup complete. Now run these commands to install the plugin:" -ForegroundColor Green
 Write-Host ""
-Write-Host "  /plugin marketplace add BlackDragonBE/Xurrent-Claude-Plugin" -ForegroundColor White
-Write-Host "  /plugin install xurrent@xurrent-tools" -ForegroundColor White
+Write-Host "claude plugin marketplace add BlackDragonBE/Xurrent-Claude-Plugin" -ForegroundColor White
+Write-Host "claude plugin install xurrent@xurrent-tools" -ForegroundColor White
 Write-Host ""
