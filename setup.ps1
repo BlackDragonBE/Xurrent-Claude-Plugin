@@ -18,17 +18,44 @@ Write-Host "------------------------------"
 
 # Python >= 3.10
 Write-Step "Checking Python..."
+$pythonOk = $false
 try {
     $pyver = & python --version 2>&1
     if ($pyver -match '(\d+)\.(\d+)') {
         $major = [int]$Matches[1]; $minor = [int]$Matches[2]
         if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 10)) {
-            Write-Fail "Python 3.10+ required (found $pyver). Install from https://python.org"
+            Write-Warn "Python 3.10+ required (found $pyver) — will install via Chocolatey."
+        } else {
+            Write-OK $pyver; $pythonOk = $true
         }
-        Write-OK $pyver
     }
-} catch {
-    Write-Fail "Python not found. Install Python 3.10+ from https://python.org"
+} catch { <# not found #> }
+
+if (-not $pythonOk) {
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Write-Step "Installing Python 3 via winget..."
+        & winget install --id Python.Python.3 --silent --accept-source-agreements --accept-package-agreements
+    } else {
+        Write-Warn "winget not found - falling back to Chocolatey..."
+        if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+            Write-Warn "Chocolatey not found - installing..."
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
+                        [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+            if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+                Write-Fail "Chocolatey install failed. Install manually from https://chocolatey.org then re-run."
+            }
+            Write-OK "Chocolatey installed."
+        }
+        Write-Step "Installing Python 3 via Chocolatey..."
+        & choco install python --yes --no-progress
+    }
+    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
+                [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+    $pyver = & python --version 2>&1
+    if ($pyver -match '(\d+)\.(\d+)') { Write-OK $pyver } else { Write-Fail "Python install failed." }
 }
 
 # uv
