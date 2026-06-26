@@ -72,7 +72,11 @@ async def _request_with_retry(
 ) -> httpx.Response:
     """HTTP request with retry/backoff for 429 (rate limit) and transient 403."""
     for attempt in range(max_retries):
-        resp = await client.request(method, url, headers=_headers(token, account), **kwargs)
+        headers = _headers(token, account)
+        # multipart uploads: let httpx set Content-Type (with boundary)
+        if "files" in kwargs:
+            headers.pop("Content-Type", None)
+        resp = await client.request(method, url, headers=headers, **kwargs)
         if resp.status_code == 429:
             # Respect Retry-After if present, otherwise exponential backoff
             retry_after = int(resp.headers.get("Retry-After", 2**attempt))
@@ -646,10 +650,9 @@ async def import_csv(
         # POST multipart: file field + type field; omit Content-Type so httpx sets the boundary.
         files = {"file": (f"{resource_type}.csv", csv_content.encode("utf-8"), "text/csv")}
         data = {"type": resource_type}
-        hdrs = {k: v for k, v in _headers(token, acct).items() if k != "Content-Type"}
         resp = await _request_with_retry(
             client, "POST", f"{base_url}/import", token, acct,
-            files=files, data=data, headers=hdrs,  # type: ignore[arg-type]
+            files=files, data=data,
         )
         token_val: str = resp.json()["token"]
 
